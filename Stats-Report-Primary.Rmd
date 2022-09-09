@@ -1,0 +1,193 @@
+---
+title: 'Wrist Movement during Purposeful Activities: Primary Analysis'
+author: "Usman Rashid"
+date: "13/10/2021"
+header-includes:
+- \usepackage{fancyhdr}
+- \pagestyle{fancy}
+output:
+  pdf_document:
+    number_sections: yes
+    toc: yes
+    toc_depth: 4
+  word_document:
+    toc: yes
+    toc_depth: '4'
+bibliography: bibliography.bib
+csl: apa.csl
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+rm(list = ls())
+```
+
+```{r data_setup, echo=FALSE, include=FALSE}
+
+# Packages Used:
+require(ggplot2)
+require(lme4)
+require(car)
+require(MASS)
+require(sjstats)
+require(fBasics)
+require(ggpubr)
+require(reshape2)
+require(phia)
+require(emmeans)
+require(multcomp)
+require(jtools)
+require(rsq)
+require(r2glmm)
+require(sjPlot)
+require(MuMIn)
+require(effects)
+require(optimx)
+require(margins)
+require(cAIC4)
+require(ggsignif)
+require(forcats)
+require(gdata)
+require(splines)
+require(dplyr)
+require(ggsci)
+require(blmeco)
+require(lemon)
+require(ggExtra)
+require(report)
+
+knit_print.data.frame <- lemon_print
+options(knitr.kable.NA = '')
+
+source('Stats-Helpers.R')
+
+# Load data
+Datasource <- read.csv("Data/DataTable.csv", stringsAsFactors = T)
+Datasource$Participant <- as.factor(Datasource$Participant)
+
+Datasource <- subset(Datasource, Outcome == 'TMV')
+Datasource$TMV <- Datasource$Value
+
+Datasource$Period <- as.factor(Datasource$Period)
+
+Datasource$Condition <- factor(Datasource$Condition, levels = c("A", "B"), labels = c("Purposeful activity", "Active exercise"))
+Datasource$Intervention <- Datasource$Condition
+Datasource$Condition <- NULL
+
+Datasource$Movement <- fct_relevel(Datasource$Movement, "Rot", "Dev", "EF", "Sup", "UD", "WE")
+Datasource$Movement <- factor(Datasource$Movement, levels = c("Rot", "Dev", "EF", "Sup", "UD", "WE"), labels = c("Rotation", "Deviation", "Extension-Flexion", "Supination", "Ulnar deviation", "Wrist extension"))
+```
+
+\newpage
+
+# Statistical Analysis Plan
+
+A statistical analysis consisting of linear mixed regression is conducted to evaluate the following primary null hypothesis: total movement volume (TMV) is equal across conditions under all movement categories. The linear mixed regression model regresses TMV on movement type, condition, and the interaction of movement type with condition. The model also includes a participant-wise random-intercept for each movement type without any constraints on the correlations across movements (a.k.a "unstructured"). This allows the model to account for the between-participant variance and within-participant correlations amongst the movement types. Moreover, to account for differences in error variance across movement types, the model is structured to estimate a separate error variance for each movement type. The normality and homogeneity of model residuals is evaluated with fitted values versus residuals plot, QQ-plot and histogram. The presence of carry-over effects is tested by including an interaction term between condition and period. This interaction term is dropped if it is not statistically significant. If it is significant, data from period 2 is dropped from analysis as it is considered contaminated with the carry-over effect. The null hypothesis is evaluated with pair-wise comparison of estimated TMV means across conditions. Statistical significance level is set at 0.05. TMV means across conditions under different movement types are reported with their 95% confidence intervals. The analysis is conducted in R using packages: nlme, lme4, r2glmm, emmeans, performance and ggplot2 [@forR; @fornlme; @forlme; @forrglmm; @foremmeans; @forPerf; @forGGPlot].
+
+\newpage
+
+# Results of Primary Analysis
+
+## Total Movement Volume
+
+The raw data for TMV is illustrated in the below figure in a box and scatter plot. Lower TMV is observed in condition PA compared to condition AE irrespective of the movement type.
+
+```{r tmv_viz, echo=FALSE, include=TRUE, warning=F, comment=NA}
+ggplot(Datasource, aes(x = Intervention, y = TMV, color=Intervention)) + facet_wrap(~Movement) + geom_boxplot() + geom_jitter(width=0.2, size=0.8, alpha=0.5, height = 0) + scale_color_nejm() + scale_fill_nejm() + theme_minimal() + theme(
+      panel.grid.major.x = element_blank(),
+      panel.grid.minor = element_blank(),
+      panel.background = element_blank(),
+      axis.text.x = element_blank(),
+      axis.line = element_line(colour = "black"),
+    ) + xlab('') + ylab('TAP') + scale_y_continuous(limits = c(0, 18000), breaks = seq(0, 18000, 2000))
+```
+
+No carry-over effect is detected in the data. The general trend observed in the raw TMV is confirmed by the statistical model. Condition PA has lower TMV irrespective of the movement type. The movement-wise difference between condition PA and AE is: ulnar deviation $\Delta$ = -1446 95% CI [-1807, -1085], t[170] = -7.914, p = < 0.0001; wrist extension/flexion $\Delta$ = -1878 95% CI [-2389, -1367], t[170] = -7.260, p = < 0.0001; forearm rotation $\Delta$ = -2943 95% CI [-3821, -2065], t[170] = -6.616, p = < 0.0001.
+
+\newpage
+
+# Statistical Models
+
+## TMV Estimation and Hypothesis Tests
+
+### Model with Carry-over Effects
+
+```{r stepII_model_carry, echo=TRUE, include=TRUE, warning=F}
+Model <- lme(TMV ~ Movement*Intervention + Intervention*Period,
+             random = ~ Movement|Participant,
+             data = Datasource,
+             weights = varIdent(form = ~1|Movement))
+```
+
+### Test for Carry-over Effects
+
+```{r stepII_model_carry_test, echo=FALSE, include=TRUE, warning=F, comment=NA, render=lemon_print}
+a<-as.data.frame(anova(Model))
+names(a) <- c("Num. D.F.", "Den. D.F.", "F-value", "P-value")
+a<-round(a, 3)
+a <- a[which(row.names(a) == "Intervention:Period"),]
+head(a, n=100L)
+```
+
+### Model without Carry-over Effects
+
+```{r stepII_model, echo=TRUE, include=TRUE, warning=F}
+Model <- lme(TMV ~ Movement*Intervention,
+             random = ~ Movement|Participant,
+             data = Datasource,
+             weights = varIdent(form = ~1|Movement))
+```
+
+### Model Diagnostics
+
+```{r stepII_model_diag, echo=FALSE, include=TRUE, warning=F}
+gDiag<-diag.plot.lme(Model)
+gDiag
+```
+
+### Hypothesis Tests
+
+```{r stepII_model_hyp, echo=FALSE, include=TRUE, warning=F, comment=NA, render=lemon_print}
+a <- emmeans(Model, pairwise~Intervention | Movement, adjust = "none")
+a <- as.data.frame(summary(a$contrasts, infer = c(T, T), adjust = "none"))
+names(a) <- c("Contrast", "Movement", "Difference", "SE", "D.F.", "95% CI Lower", "95% CI Upper", "T-value", "P-value")
+a[, seq(3, 7)] <- round(a[, seq(3, 7)])
+a[, 8] <- round(a[, 8], 3)
+a$`P-value` <- sapply(a$`P-value`, standard.p.value)
+head(a, n=100L)
+```
+
+### Expected TAP with 95% CIs
+
+```{r stepII_model_exp, echo=FALSE, include=TRUE, warning=F, comment=NA, render=lemon_print}
+a <- emmeans(Model, pairwise~Intervention | Movement, adjust = "none")
+a <- as.data.frame(a$emmeans)
+names(a) <- c("Intervention", "Movement", "Expected TMV", "SE", "D.F.", "95% CI Lower", "95% CI Upper")
+a$SE <- NULL
+a$D.F. <- NULL
+a[, seq(3, 5)] <- round(a[, seq(3, 5)])
+head(a, n=100L)
+```
+
+### Visualisation of Expected TAP
+
+```{r stepII_model_viz, echo=FALSE, include=TRUE, warning=F, comment=NA}
+emmip(Model, Intervention ~ Movement, CIs = T, linearg = list(linetype = 0), CIarg = list(lwd = 1, alpha = 1)) + scale_color_nejm() + scale_fill_nejm() + theme_minimal() + theme(
+      panel.grid.major.x = element_blank(),
+      panel.grid.minor = element_blank(),
+      panel.background = element_blank(),
+      axis.line = element_line(colour = "black")
+    ) + xlab('') + ylab('Expected TAP with 95% CIs') + scale_y_continuous(limits = c(0, 12000), breaks = seq(0, 12000, 1000))
+```
+
+\newpage
+
+### Overall Model Summary
+
+```{r stepII_model_summary, echo=FALSE, include=TRUE, warning=F, comment=NA}
+summary(Model)
+```
+
+\newpage
+
+# References

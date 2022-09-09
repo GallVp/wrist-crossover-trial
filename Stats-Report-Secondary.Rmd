@@ -1,0 +1,691 @@
+---
+title: 'Wrist Movement during Purposeful Activities: Secondary Analysis'
+author: "Usman Rashid"
+date: "31/08/2021"
+header-includes:
+- \usepackage{fancyhdr}
+- \pagestyle{fancy}
+output:
+  md_document:
+    variant: gfm
+    toc: yes
+    toc_depth: '4'
+  pdf_document:
+    number_sections: yes
+    toc: yes
+    toc_depth: 4
+  word_document:
+    toc: yes
+    toc_depth: '4'
+bibliography: bibliography.bib
+csl: apa.csl
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+rm(list = ls())
+```
+
+```{r data_setup, echo=FALSE, include=FALSE}
+
+# Packages Used:
+require(ggplot2)
+require(lme4)
+require(car)
+require(MASS)
+require(sjstats)
+require(fBasics)
+require(ggpubr)
+require(reshape2)
+require(phia)
+require(emmeans)
+require(multcomp)
+require(jtools)
+require(rsq)
+require(r2glmm)
+require(sjPlot)
+require(MuMIn)
+require(effects)
+require(optimx)
+require(margins)
+require(cAIC4)
+require(ggsignif)
+require(forcats)
+require(gdata)
+require(splines)
+require(dplyr)
+require(ggsci)
+require(blmeco)
+require(lemon)
+require(ggExtra)
+require(report)
+require(lavaan)
+require(semPlot)
+
+knit_print.data.frame <- lemon_print
+options(knitr.kable.NA = '')
+
+source('Stats-Helpers.R')
+
+# Load data
+Datasource <- read.csv("Data/DataTable.csv", stringsAsFactors = T)
+Datasource$Participant <- as.factor(Datasource$Participant)
+
+#Datasource <- subset(Datasource, Outcome != 'TMV')
+
+Datasource$Period <- as.factor(Datasource$Period)
+
+Datasource[Datasource$Outcome == "MaxER", "Value"] <- abs(Datasource[Datasource$Outcome == "MaxER", "Value"])
+Datasource[Datasource$Outcome == "MaxER", "Value"] <- abs(Datasource[Datasource$Outcome == "MaxER", "Value"])
+
+Datasource.IEC <- subset(Datasource, Outcome == "MaxER" & Movement == "UD")
+
+Datasource$Condition <- factor(Datasource$Condition, levels = c("A", "B"), labels = c("Purposeful activity", "Active exercise"))
+Datasource$Intervention <- Datasource$Condition
+Datasource$Condition <- NULL
+
+Datasource.IEC$Condition <- factor(Datasource.IEC$Condition, levels = c("A", "B"), labels = c("Purposeful activity", "Active exercise"))
+Datasource.IEC$Intervention <- Datasource.IEC$Condition
+Datasource.IEC$Condition <- NULL
+
+Datasource$Movement <- fct_relevel(Datasource$Movement, "Rot", "Dev", "EF", "Sup", "UD", "WE")
+Datasource$Movement <- factor(Datasource$Movement, levels = c("Rot", "Dev", "EF", "Sup", "UD", "WE"), labels = c("Rotation", "Deviation", "Extension-Flexion", "Supination", "Ulnar deviation", "Wrist extension"))
+```
+
+\newpage
+
+# Statistical Analysis Plan
+
+The statistical analysis plan described for the primary outcome is repeated for the following secondary outcomes: Maximum end range (MaxER), Number of excursions beyond 75% of end range (NoE>75%), Number of Repetitions (NoR), Percentage of active time (PoAT), Importance, Enjoyment and Challenge. However, a few changes are made in the regression models. For NoE>75%, NoR and PoAT, a linear mixed regression model is not possible because the model residuals are skewed and the homogeneity of variance assumption is violated. Instead a generalized linear mixed regression model is setup. This model assumes that the outcome has a Gamma distribution. The rest of the fixed and random effects structure of the model is similar to the TMV model. For Importance, Enjoyment and Challenge, the mean difference across Interventions is modeled with a linear mixed regression model which includes a fixed effect for Intervention and a random intercept for participant.
+
+\newpage
+
+# Results of Primary Analysis
+
+## MaxER
+
+The raw data for MaxER is illustrated in the below figure in a box and scatter plot. Lower MaxER is observed in Intervention PA compared to Intervention AE in "Sup" movement category.
+
+```{r max_er_viz, echo=FALSE, include=TRUE, warning=F, comment=NA}
+ggplot(subset(Datasource, Outcome == "MaxER"), aes(x = Intervention, y = Value, color=Intervention)) + facet_wrap(~Movement) + geom_boxplot() + geom_jitter(width=0.2, size=0.8, alpha=0.5, height = 0) + scale_color_nejm() + scale_fill_nejm() + theme_minimal() + theme(
+  panel.grid.major.x = element_blank(),
+  panel.grid.minor = element_blank(),
+  panel.background = element_blank(),
+  axis.text.x = element_blank(),
+  axis.line = element_line(colour = "black"),
+) + xlab('') + ylab('MaxER') + scale_y_continuous(limits = c(0, 100), breaks = seq(0, 100, 5))
+```
+
+No carry-over effect is detected in the data. The general trend observed in the raw MaxER is confirmed by the statistical model. Intervention PA has lower MaxER in "Sup" movement category. The movement-wise difference between Intervention PA and AE is: supination $\Delta$ = -5.7 95% CI [-9.8, -1.6], t[170] = -2.756, p = 0.006; ulnar deviation $\Delta$ = 0.3 95% CI [-1.3, 2.0], t[170] = 0.422, p = 0.673; wrist extension $\Delta$ = -0.9 95% CI [-2.7, 0.9], t[170] = -0.951, p = 0.343.
+
+\newpage
+
+## NoE>75%
+
+The raw data for NoE>75% is illustrated in the below figure in a box and scatter plot. Lower NoE>75% is observed in Intervention PA compared to Intervention AE in "Sup" movement category. In "UD" and "WE" categories, higher NoE>75% is observed in Intervention PA.
+
+```{r no_e_viz, echo=FALSE, include=TRUE, warning=F, comment=NA}
+ggplot(subset(Datasource, Outcome == "NoE>75%"), aes(x = Intervention, y = Value, color=Intervention)) + facet_wrap(~Movement) + geom_boxplot() + geom_jitter(width=0.2, size=0.8, alpha=0.5, height = 0) + scale_color_nejm() + scale_fill_nejm() + theme_minimal() + theme(
+  panel.grid.major.x = element_blank(),
+  panel.grid.minor = element_blank(),
+  panel.background = element_blank(),
+  axis.line = element_line(colour = "black"),
+  axis.text.x = element_blank(),
+) + xlab('') + ylab('NoE>75%') + scale_y_continuous(limits = c(0, 400), breaks = seq(0, 400, 25))
+```
+
+No carry-over effect is detected in the data. The movement-wise difference between Intervention PA and AE is: supination $\Delta$ = -12 95% CI [-18, -6], z = -3.703, p = 0.0002; ulnar deviation $\Delta$ = 42 95% CI [19, 65], z = 3.566, p = 0.0004; wrist extension $\Delta$ = 54 95% CI [24, 85], z = 3.492, p = 0.0005.
+
+\newpage
+
+## NoR
+
+The raw data for NoR is illustrated in the below figure in a box and scatter plot. Higher NoR is observed in Intervention PA compared to Intervention AE in "EF" and "Rot" categories.
+
+```{r no_r_viz, echo=FALSE, include=TRUE, warning=F, comment=NA}
+ggplot(subset(Datasource, Outcome == "NoR"), aes(x = Intervention, y = Value, color=Intervention)) + facet_wrap(~Movement) + geom_boxplot() + geom_jitter(width=0.2, size=0.8, alpha=0.5, height = 0) + scale_color_nejm() + scale_fill_nejm() + theme_minimal() + theme(
+  panel.grid.major.x = element_blank(),
+  panel.grid.minor = element_blank(),
+  panel.background = element_blank(),
+  axis.line = element_line(colour = "black"),
+  axis.text.x = element_blank(),
+) + xlab('') + ylab('NoR') + scale_y_continuous(limits = c(0, 350), breaks = seq(0, 350, 25))
+```
+
+No carry-over effect is detected in the data. The movement-wise difference between Intervention PA and AE is: ulnar deviation $\Delta$ = -0.2 95% CI [-1.7, 1.3], z = -0.296, p = 0.77; wrist extension/flexion $\Delta$ = 67.9 95% CI [49.4, 86.4], z = 7.193, p < 0.0001; rotation $\Delta$ = 117.5 95% CI [94.4, 140.7], z = 9.948, p < 0.0001.
+
+\newpage
+
+## PoAT
+
+The raw data for PoAT is illustrated in the below figure in a box and scatter plot. Higher PoAT is observed in Intervention PA compared to Intervention AE in all movement categories.
+
+```{r poat_viz, echo=FALSE, include=TRUE, warning=F, comment=NA}
+ggplot(subset(Datasource, Outcome == "PoAT"), aes(x = Intervention, y = Value, color=Intervention)) + facet_wrap(~Movement) + geom_boxplot() + geom_jitter(width=0.2, size=0.8, alpha=0.5, height = 0) + scale_color_nejm() + scale_fill_nejm() + theme_minimal() + theme(
+  panel.grid.major.x = element_blank(),
+  panel.grid.minor = element_blank(),
+  panel.background = element_blank(),
+  axis.line = element_line(colour = "black"),
+  axis.text.x = element_blank(),
+) + xlab('') + ylab('PoAT') + scale_y_continuous(limits = c(0, 100), breaks = seq(0, 100, 5))
+```
+
+No carry-over effect is detected in the data. The movement-wise difference between Intervention PA and AE is: ulnar deviation $\Delta$ = 59 95% CI [56, 62], z = 36.133, p < 0.0001; wrist extension/flexion $\Delta$ = 53 95% CI [50, 57], z = 29.969, p < 0.0001; rotation $\Delta$ = 52 95% CI [49, 56], z = 28.500, p < 0.0001.
+
+\newpage
+
+## Importance
+
+The raw data for Importance is illustrated in the below figure.
+
+```{r impt_viz, echo=FALSE, include=TRUE, warning=F, comment=NA}
+Datasource.IEC$Importance <- as.factor(Datasource.IEC$Importance)
+ggplot(Datasource.IEC, aes(x = Intervention)) + geom_bar(aes(fill = fct_rev(Importance))) + scale_color_nejm() + scale_fill_nejm() + theme_minimal() + theme(
+  panel.grid.major.x = element_blank(),
+  panel.grid.minor = element_blank(),
+  panel.background = element_blank(),
+  legend.title = element_blank(),
+  axis.text.y = element_text(angle = 90, hjust=0.5),
+  axis.line = element_line(colour = "black")
+) + xlab('') + ylab("Count") + coord_flip() + scale_y_continuous(limits = c(0, 35), breaks = seq(0, 35, 5))
+```
+
+No carry-over effect is detected in the data. The mean difference between Intervention PA and AE is -0.2 95% CI [-0.4, 0], T[34] = -1.871, p = 0.07.
+
+\newpage
+
+## Enjoyment
+
+The raw data for Enjoyment is illustrated in the below figure.
+
+```{r enjoy_viz, echo=FALSE, include=TRUE, warning=F, comment=NA}
+Datasource.IEC$Enjoyment <- as.factor(Datasource.IEC$Enjoyment)
+ggplot(Datasource.IEC, aes(x = Intervention)) + geom_bar(aes(fill = fct_rev(Enjoyment))) + scale_color_nejm() + scale_fill_nejm() + theme_minimal() + theme(
+  panel.grid.major.x = element_blank(),
+  panel.grid.minor = element_blank(),
+  panel.background = element_blank(),
+  legend.title = element_blank(),
+  axis.text.y = element_text(angle = 90, hjust=0.5),
+  axis.line = element_line(colour = "black")
+) + xlab('') + ylab("Count") + coord_flip() + scale_y_continuous(limits = c(0, 35), breaks = seq(0, 35, 5))
+```
+
+No carry-over effect is detected in the data. The mean difference between Intervention PA and AE is 0.4 95% CI [-0.2, 1], T[34] = 1.46, p = 0.154.
+
+\newpage
+
+## Challenge
+
+The raw data for Challenge is illustrated in the below figure.
+
+```{r chl_viz, echo=FALSE, include=TRUE, warning=F, comment=NA}
+Datasource.IEC$Challenge <- as.factor(Datasource.IEC$Challenge)
+ggplot(Datasource.IEC, aes(x = Intervention)) + geom_bar(aes(fill = fct_rev(Challenge))) + scale_color_nejm() + scale_fill_nejm() + theme_minimal() + theme(
+  panel.grid.major.x = element_blank(),
+  panel.grid.minor = element_blank(),
+  panel.background = element_blank(),
+  legend.title = element_blank(),
+  axis.text.y = element_text(angle = 90, hjust=0.5),
+  axis.line = element_line(colour = "black")
+) + xlab('') + ylab("Count") + coord_flip() + scale_y_continuous(limits = c(0, 35), breaks = seq(0, 35, 5))
+```
+
+No carry-over effect is detected in the data. The mean difference between Intervention PA and AE is -0.5 95% CI [-0.9, -0.1], T[34] = -2.359, p = 0.024.
+
+\newpage
+
+# Statistical Models
+
+## MaxER Estimation and Hypothesis Tests
+
+### Model with Carry-over Effects
+
+```{r stepII_model_carry_max_er, echo=TRUE, include=TRUE, warning=F}
+Model <- lme(Value ~ Movement*Intervention + Intervention*Period,
+             random = ~ Movement|Participant,
+             data = subset(Datasource, Outcome == "MaxER"),
+             weights = varIdent(form = ~1|Movement))
+```
+
+### Test for Carry-over Effects
+
+```{r stepII_model_carry_test_max_er, echo=FALSE, include=TRUE, warning=F, comment=NA, render=lemon_print}
+a<-as.data.frame(anova(Model))
+names(a) <- c("Num. D.F.", "Den. D.F.", "F-value", "P-value")
+a<-round(a, 3)
+a <- a[which(row.names(a) == "Intervention:Period"),]
+head(a, n=100L)
+```
+
+### Model without Carry-over Effects
+
+```{r stepII_model_max_er, echo=TRUE, include=TRUE, warning=F}
+Model <- lme(Value ~ Movement*Intervention,
+             random = ~ Movement|Participant,
+             data = subset(Datasource, Outcome == "MaxER"),
+             weights = varIdent(form = ~1|Movement))
+```
+
+### Model Diagnostics
+
+```{r stepII_model_diag_max_er, echo=FALSE, include=TRUE, warning=F}
+gDiag<-diag.plot.lme(Model)
+gDiag
+```
+
+### Hypothesis Tests
+
+```{r stepII_model_hyp_max_er, echo=FALSE, include=TRUE, warning=F, comment=NA, render=lemon_print}
+a <- emmeans(Model, pairwise~Intervention | Movement, adjust = "none")
+a <- as.data.frame(summary(a$contrasts, infer = c(T, T), adjust = "none"))
+names(a) <- c("Contrast", "Movement", "Difference", "SE", "D.F.", "95% CI Lower", "95% CI Upper", "T-value", "P-value")
+a[, seq(3, 7)] <- round(a[, seq(3, 7)], 1)
+a[, c(8, 9)] <- round(a[, c(8, 9)], 3)
+a$`P-value` <- sapply(a$`P-value`, standard.p.value)
+head(a, n=100L)
+```
+
+### Expected MaxER with 95% CIs
+
+```{r stepII_model_exp_max_er, echo=FALSE, include=TRUE, warning=F, comment=NA, render=lemon_print}
+a <- emmeans(Model, pairwise~Intervention | Movement, adjust = "none")
+a <- as.data.frame(a$emmeans)
+names(a) <- c("Intervention", "Movement", "Expected MaxER", "SE", "D.F.", "95% CI Lower", "95% CI Upper")
+a$SE <- NULL
+a$D.F. <- NULL
+a[, seq(3, 5)] <- round(a[, seq(3, 5)], 1)
+head(a, n=100L)
+```
+
+### Visualisation of Expected MaxER
+
+```{r stepII_model_viz_max_er, echo=FALSE, include=TRUE, warning=F, comment=NA}
+emmip(Model, Intervention ~ Movement, CIs = T, linearg = list(linetype = 0), CIarg = list(lwd = 1, alpha = 1)) + scale_color_nejm() + scale_fill_nejm() + theme_minimal() + theme(
+  panel.grid.major.x = element_blank(),
+  panel.grid.minor = element_blank(),
+  panel.background = element_blank(),
+  axis.line = element_line(colour = "black")
+) + xlab('') + ylab('Expected MaxER with 95% CIs') + scale_y_continuous(limits = c(0, 48), breaks = seq(0, 48, 4))
+```
+
+\newpage
+
+### Overall Model Summary
+
+```{r stepII_model_summary_max_er, echo=FALSE, include=TRUE, warning=F, comment=NA}
+summary(Model)
+```
+
+\newpage
+
+## NoE>75% Estimation and Hypothesis Tests
+
+### Model with Carry-over Effects
+
+```{r stepII_model_carry_no_e, echo=TRUE, include=TRUE, warning=F}
+Model <- glmer(Value+1 ~ Movement*Intervention + Intervention*Period +
+                 (Movement|Participant),
+               family = Gamma(link = "identity"),
+               data = subset(Datasource, Outcome == "NoE>75%"),
+               control = glmerControl(optimizer = c("nmkbw")),
+               nAGQ = 0)
+```
+
+### Test for Carry-over Effects
+
+```{r stepII_model_carry_test_no_e, echo=FALSE, include=TRUE, warning=F, comment=NA, render=lemon_print}
+a<-as.data.frame(Anova(Model))
+names(a) <- c("Chi-squared","D.F.","P-value")
+a<-round(a, 3)
+a <- a[which(row.names(a) == "Intervention:Period"),]
+head(a, n=100L)
+```
+
+### Model without Carry-over Effects
+
+```{r stepII_model_no_e, echo=TRUE, include=TRUE, warning=F}
+Model <- glmer(Value+1 ~ Movement*Intervention +
+                 (Movement|Participant),
+               family = Gamma(link = "identity"),
+               data = subset(Datasource, Outcome == "NoE>75%"),
+               control = glmerControl(optimizer = c("nmkbw")),
+               nAGQ = 0)
+```
+
+### Hypothesis Tests
+
+```{r stepII_model_hyp_no_e, echo=FALSE, include=TRUE, warning=F, comment=NA, render=lemon_print}
+a <- emmeans(Model, pairwise~Intervention | Movement, adjust = "none", type = "response")
+a <- as.data.frame(summary(a$contrasts, infer = c(T, T), adjust = "none"))
+a$df <- NULL
+a$null <- NULL
+names(a) <- c("Contrast", "Movement", "Difference", "SE", "95% CI Lower", "95% CI Upper", "Z-value", "P-value")
+a[, seq(3, 6)] <- round(a[, seq(3, 6)])
+a[, 7] <- round(a[, 7], 3)
+a[, 8] <- round(a[, 8], 6)
+a$`P-value` <- sapply(a$`P-value`, standard.p.value)
+head(a, n=100L)
+```
+
+### Expected NoE>75% with 95% CIs
+
+```{r stepII_model_exp_no_e, echo=FALSE, include=TRUE, warning=F, comment=NA, render=lemon_print}
+a <- emmeans(Model, pairwise~Intervention | Movement, adjust = "none", type = "response")
+a <- as.data.frame(a$emmeans)
+names(a) <- c("Intervention", "Movement", "Expected NoE>75%", "SE", "D.F.", "95% CI Lower", "95% CI Upper")
+a$SE <- NULL
+a$D.F. <- NULL
+a[, seq(3, 5)] <- round(a[, seq(3, 5)])
+head(a, n=100L)
+```
+
+### Visualisation of Expected NoE>75%
+
+```{r stepII_model_viz_no_e, echo=FALSE, include=TRUE, warning=F, comment=NA}
+emmip(Model, Intervention ~ Movement, CIs = T, type = "response", linearg = list(linetype = 0), CIarg = list(lwd = 1, alpha = 1)) + scale_color_nejm() + scale_fill_nejm() + theme_minimal() + theme(
+  panel.grid.major.x = element_blank(),
+  panel.grid.minor = element_blank(),
+  panel.background = element_blank(),
+  axis.line = element_line(colour = "black")
+) + xlab('') + ylab('Expected NoE>75% with 95% CIs') + scale_y_continuous(limits = c(0, 120), breaks = seq(0, 120, 10))
+```
+
+\newpage
+
+### Overall Model Summary
+
+```{r stepII_model_summary_no_e, echo=FALSE, include=TRUE, warning=F, comment=NA}
+summary(Model)
+```
+
+\newpage
+
+## NoR Estimation and Hypothesis Tests
+
+### Model with Carry-over Effects
+
+```{r stepII_model_carry_no_r, echo=TRUE, include=TRUE, warning=F}
+Model <- glmer(Value+1 ~ Movement*Intervention + Intervention*Period +
+                 (1|Participant),
+               data = subset(Datasource, Outcome == "NoR"),
+               family = Gamma(link = "identity"),
+               control = glmerControl(optimizer = "bobyqa"))
+```
+
+### Test for Carry-over Effects
+
+```{r stepII_model_carry_test_no_r, echo=FALSE, include=TRUE, warning=F, comment=NA, render=lemon_print}
+a<-as.data.frame(Anova(Model))
+names(a) <- c("Chi-squared","D.F.","P-value")
+a<-round(a, 3)
+a <- a[which(row.names(a) == "Intervention:Period"),]
+head(a, n=100L)
+```
+
+### Model without Carry-over Effects
+
+```{r stepII_model_no_r, echo=TRUE, include=TRUE, warning=F}
+Model <- glmer(Value+1 ~ Movement*Intervention +
+                 (1|Participant),
+               family = Gamma(link = "identity"),
+               data = subset(Datasource, Outcome == "NoR"),
+               control = glmerControl(optimizer = "bobyqa"))
+```
+
+### Hypothesis Tests
+
+```{r stepII_model_hyp_no_r, echo=FALSE, include=TRUE, warning=F, comment=NA, render=lemon_print}
+a <- emmeans(Model, pairwise~Intervention | Movement, adjust = "none", type = "response")
+a <- as.data.frame(summary(a$contrasts, infer = c(T, T), adjust = "none"))
+a$df <- NULL
+a$null <- NULL
+names(a) <- c("Contrast", "Movement", "Difference", "SE", "95% CI Lower", "95% CI Upper", "Z-value", "P-value")
+a[, seq(3, 6)] <- round(a[, seq(3, 6)], 1)
+a[, 7] <- round(a[, 7], 3)
+a[, 8] <- round(a[, 8], 6)
+a$`P-value` <- sapply(a$`P-value`, standard.p.value)
+head(a, n=100L)
+```
+
+### Expected NoR with 95% CIs
+
+```{r stepII_model_exp_no_r, echo=FALSE, include=TRUE, warning=F, comment=NA, render=lemon_print}
+a <- emmeans(Model, pairwise~Intervention | Movement, adjust = "none", type = "response")
+a <- as.data.frame(a$emmeans)
+names(a) <- c("Intervention", "Movement", "Expected NoR", "SE", "D.F.", "95% CI Lower", "95% CI Upper")
+a$SE <- NULL
+a$D.F. <- NULL
+a[, seq(3, 5)] <- round(a[, seq(3, 5)], 1)
+head(a, n=100L)
+```
+
+### Visualisation of Expected NoR
+
+```{r stepII_model_viz_no_r, echo=FALSE, include=TRUE, warning=F, comment=NA}
+emmip(Model, Intervention ~ Movement, CIs = T, type = "response", linearg = list(linetype = 0), CIarg = list(lwd = 1, alpha = 1)) + scale_color_nejm() + scale_fill_nejm() + theme_minimal() + theme(
+  panel.grid.major.x = element_blank(),
+  panel.grid.minor = element_blank(),
+  panel.background = element_blank(),
+  axis.line = element_line(colour = "black")
+) + xlab('') + ylab('Expected NoR with 95% CIs') + scale_y_continuous(limits = c(0, 200), breaks = seq(0, 200, 10))
+```
+
+\newpage
+
+### Overall Model Summary
+
+```{r stepII_model_summary_no_r, echo=FALSE, include=TRUE, warning=F, comment=NA}
+summary(Model)
+```
+
+\newpage
+
+## PoAT Estimation and Hypothesis Tests
+
+### Model with Carry-over Effects
+
+```{r stepII_model_carry_poat, echo=TRUE, include=TRUE, warning=F}
+Model <- glmer(Value ~ Movement*Intervention + Intervention*Period +
+                 (1|Participant),
+               data = subset(Datasource, Outcome == "PoAT"),
+               family = Gamma(link = "identity"),
+               control = glmerControl(optimizer = "bobyqa"))
+```
+
+### Test for Carry-over Effects
+
+```{r stepII_model_carry_test_poat, echo=FALSE, include=TRUE, warning=F, comment=NA, render=lemon_print}
+a<-as.data.frame(Anova(Model))
+names(a) <- c("Chi-squared","D.F.","P-value")
+a<-round(a, 3)
+a <- a[which(row.names(a) == "Intervention:Period"),]
+head(a, n=100L)
+```
+
+### Model without Carry-over Effects
+
+```{r stepII_model_poat, echo=TRUE, include=TRUE, warning=F}
+Model <- glmer(Value ~ Movement*Intervention +
+                 (1|Participant),
+               family = Gamma(link = "identity"),
+               data = subset(Datasource, Outcome == "PoAT"),
+               control = glmerControl(optimizer = "bobyqa"))
+```
+
+### Hypothesis Tests
+
+```{r stepII_model_hyp_poat, echo=FALSE, include=TRUE, warning=F, comment=NA, render=lemon_print}
+a <- emmeans(Model, pairwise~Intervention | Movement, adjust = "none", type = "response")
+a <- as.data.frame(summary(a$contrasts, infer = c(T, T), adjust = "none"))
+a$df <- NULL
+a$null <- NULL
+names(a) <- c("Contrast", "Movement", "Difference", "SE", "95% CI Lower", "95% CI Upper", "Z-value", "P-value")
+a[, seq(3, 6)] <- round(a[, seq(3, 6)])
+a[, 7] <- round(a[, 7], 3)
+a[, 8] <- round(a[, 8], 6)
+a$`P-value` <- sapply(a$`P-value`, standard.p.value)
+head(a, n=100L)
+```
+
+### Expected PoAT with 95% CIs
+
+```{r stepII_model_poat_exp, echo=FALSE, include=TRUE, warning=F, comment=NA, render=lemon_print}
+a <- emmeans(Model, pairwise~Intervention | Movement, adjust = "none", type = "response")
+a <- as.data.frame(a$emmeans)
+names(a) <- c("Intervention", "Movement", "Expected PoAT", "SE", "D.F.", "95% CI Lower", "95% CI Upper")
+a$SE <- NULL
+a$D.F. <- NULL
+a[, seq(3, 5)] <- round(a[, seq(3, 5)])
+head(a, n=100L)
+```
+
+### Visualisation of Expected PoAT
+
+```{r stepII_model_viz_poat, echo=FALSE, include=TRUE, warning=F, comment=NA}
+emmip(Model, Intervention ~ Movement, CIs = T, type = "response", linearg = list(linetype = 0), CIarg = list(lwd = 1, alpha = 1)) + scale_color_nejm() + scale_fill_nejm() + theme_minimal() + theme(
+  panel.grid.major.x = element_blank(),
+  panel.grid.minor = element_blank(),
+  panel.background = element_blank(),
+  axis.line = element_line(colour = "black")
+) + xlab('') + ylab('Expected PoAT with 95% CIs') + scale_y_continuous(limits = c(0, 110), breaks = seq(0, 110, 5))
+```
+
+\newpage
+
+### Overall Model Summary
+
+```{r stepII_model_summary_poat, echo=FALSE, include=TRUE, warning=F, comment=NA}
+summary(Model)
+```
+
+\newpage
+
+## Importance
+
+### Model with Carry-over Effects
+
+```{r stepII_model_carry_impt, echo=TRUE, include=TRUE, warning=F}
+Datasource.IEC$Importance <- as.numeric(Datasource.IEC$Importance)
+Model <- lmer(Importance ~ Intervention*Period +
+                (1|Participant),
+              data = Datasource.IEC)
+```
+
+### Test for Carry-over Effects
+
+```{r stepII_model_carry_test_impt, echo=FALSE, include=TRUE, warning=F, comment=NA, render=lemon_print}
+a<-as.data.frame(Anova(Model))
+names(a) <- c("Chi-squared","D.F.","P-value")
+a<-round(a, 3)
+a <- a[which(row.names(a) == "Intervention:Period"),]
+head(a, n=100L)
+```
+
+### Model without Carry-over Effects
+
+```{r stepII_model_impt, echo=TRUE, include=TRUE, warning=F}
+Model <- lmer(Importance ~ Intervention +
+                (1|Participant),
+              data = Datasource.IEC)
+```
+
+### Hypothesis Tests
+
+```{r stepII_model_impt_hyp, echo=FALSE, include=TRUE, warning=F, comment=NA, render=lemon_print}
+a <- emmeans(Model, pairwise~Intervention, adjust = "none", type = "response")
+a <- as.data.frame(summary(a$contrasts, infer = c(T, T), adjust = "none"))
+names(a) <- c("Contrast", "Difference", "SE", "D.F.", "95% CI Lower", "95% CI Upper", "T-value", "P-value")
+a[, seq(2, 6)] <- round(a[, seq(2, 6)], 1)
+a[, 7] <- round(a[, 7], 3)
+a[, 8] <- round(a[, 8], 3)
+a$`P-value` <- sapply(a$`P-value`, standard.p.value)
+head(a, n=100L)
+```
+
+\newpage
+
+## Enjoyment
+
+### Model with Carry-over Effects
+
+```{r stepII_model_carry_enjy, echo=TRUE, include=TRUE, warning=F}
+Datasource.IEC$Enjoyment <- as.numeric(Datasource.IEC$Enjoyment)
+Model <- lmer(Enjoyment ~ Intervention*Period +
+                (1|Participant),
+              data = Datasource.IEC)
+```
+
+### Test for Carry-over Effects
+
+```{r stepII_model_carry_test_enjy, echo=FALSE, include=TRUE, warning=F, comment=NA, render=lemon_print}
+a<-as.data.frame(Anova(Model))
+names(a) <- c("Chi-squared","D.F.","P-value")
+a<-round(a, 3)
+a <- a[which(row.names(a) == "Intervention:Period"),]
+head(a, n=100L)
+```
+
+### Model without Carry-over Effects
+
+```{r stepII_model_enjy, echo=TRUE, include=TRUE, warning=F}
+Model <- lmer(Enjoyment ~ Intervention +
+                (1|Participant),
+              data = Datasource.IEC)
+```
+
+### Hypothesis Tests
+
+```{r stepII_model_enjy_hyp, echo=FALSE, include=TRUE, warning=F, comment=NA, render=lemon_print}
+a <- emmeans(Model, pairwise~Intervention, adjust = "none", type = "response")
+a <- as.data.frame(summary(a$contrasts, infer = c(T, T), adjust = "none"))
+names(a) <- c("Contrast", "Difference", "SE", "D.F.", "95% CI Lower", "95% CI Upper", "T-value", "P-value")
+a[, seq(2, 6)] <- round(a[, seq(2, 6)], 1)
+a[, 7] <- round(a[, 7], 3)
+a[, 8] <- round(a[, 8], 3)
+a$`P-value` <- sapply(a$`P-value`, standard.p.value)
+head(a, n=100L)
+```
+
+\newpage
+
+## Challenge
+
+### Model with Carry-over Effects
+
+```{r stepII_model_carry_ch, echo=TRUE, include=TRUE, warning=F}
+Datasource.IEC$Challenge <- as.numeric(Datasource.IEC$Challenge)
+Model <- lmer(Challenge ~ Intervention*Period +
+                (1|Participant),
+              data = Datasource.IEC)
+```
+
+### Test for Carry-over Effects
+
+```{r stepII_model_carry_test_ch, echo=FALSE, include=TRUE, warning=F, comment=NA, render=lemon_print}
+a<-as.data.frame(Anova(Model))
+names(a) <- c("Chi-squared","D.F.","P-value")
+a<-round(a, 3)
+a <- a[which(row.names(a) == "Intervention:Period"),]
+head(a, n=100L)
+```
+
+### Model without Carry-over Effects
+
+```{r stepII_model_ch, echo=TRUE, include=TRUE, warning=F}
+Model <- lmer(Challenge ~ Intervention +
+                (1|Participant),
+              data = Datasource.IEC)
+```
+
+### Hypothesis Tests
+
+```{r stepII_model_chl_hyp, echo=FALSE, include=TRUE, warning=F, comment=NA, render=lemon_print}
+a <- emmeans(Model, pairwise~Intervention, adjust = "none", type = "response")
+a <- as.data.frame(summary(a$contrasts, infer = c(T, T), adjust = "none"))
+names(a) <- c("Contrast", "Difference", "SE", "D.F.", "95% CI Lower", "95% CI Upper", "T-value", "P-value")
+a[, seq(2, 6)] <- round(a[, seq(2, 6)], 1)
+a[, 7] <- round(a[, 7], 3)
+a[, 8] <- round(a[, 8], 3)
+a$`P-value` <- sapply(a$`P-value`, standard.p.value)
+head(a, n=100L)
+```

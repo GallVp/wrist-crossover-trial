@@ -1,0 +1,85 @@
+---
+title: 'Wrist Movement during Purposeful Activities: Univariate Analysis'
+author: "Usman Rashid"
+date: "20/07/2021"
+header-includes:
+- \usepackage{fancyhdr}
+- \pagestyle{fancy}
+output:
+  pdf_document:
+    number_sections: yes
+    toc: yes
+    toc_depth: 4
+  word_document:
+    toc: yes
+    toc_depth: '4'
+bibliography: bibliography.bib
+csl: apa.csl
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+rm(list = ls())
+```
+
+```{r data_setup, echo=FALSE, include=FALSE}
+
+# Packages Used:
+require(ggplot2)
+require(lme4)
+require(car)
+require(MASS)
+require(sjstats)
+require(fBasics)
+require(ggpubr)
+require(reshape2)
+require(phia)
+require(emmeans)
+require(multcomp)
+require(jtools)
+require(rsq)
+require(r2glmm)
+require(sjPlot)
+require(MuMIn)
+require(effects)
+require(optimx)
+require(margins)
+require(cAIC4)
+require(ggsignif)
+require(forcats)
+require(gdata)
+require(splines)
+require(dplyr)
+require(ggsci)
+require(blmeco)
+require(lemon)
+require(ggExtra)
+require(report)
+require(lavaan)
+require(semPlot)
+
+knit_print.data.frame <- lemon_print
+options(knitr.kable.NA = '')
+
+source('Stats-Helpers.R')
+
+# Load data
+Datasource <- read.csv("Data/DataTable.csv", stringsAsFactors = T)
+Datasource$Participant <- as.factor(Datasource$Participant)
+
+Datasource$Period <- as.factor(Datasource$Period)
+
+Datasource <- subset(Datasource, Outcome == "MaxER" & Movement == "UD" & Condition == 'A')
+
+Datasource$Condition <- factor(Datasource$Condition, levels = c("A", "B"), labels = c("PA", "AE"))
+
+Datasource$Movement <- fct_relevel(Datasource$Movement, "Rot", "Dev", "EF", "Sup", "UD", "WE")
+```
+
+\newpage
+
+# Univariate Statistics
+
+```{r summary, echo=FALSE, include=TRUE, warning=F, render=lemon_print}
+head(Univariate.summary.table(Datasource, exclude.vars = c("Participant", "Side", "Period", "Condition", "Sensor", "Outcome", "Movement", "Value", "Importance", "Enjoyment", "Challenge", "Volar.locking.plate"),na.rm = T), n = 100L)
+```
